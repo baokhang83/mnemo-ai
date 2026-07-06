@@ -15,6 +15,13 @@
     <description>Seasonality-aware caching utilities</description>
 
     <dependencies>
+        <!-- Optional: the Caffeine backend. Consumers opt in by adding Caffeine themselves. -->
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+            <optional>true</optional>
+        </dependency>
+
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
