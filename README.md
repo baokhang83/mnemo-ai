@@ -8,7 +8,7 @@ AI and caching utilities for the JVM. Lean, dependency-light, Java 21.
 
 | Module | What it does | Status |
 |--------|--------------|--------|
-| **`mnemo-cache`** | A **seasonality-aware cache** whose maximum capacity flexes on a daily time-of-day curve, to reclaim memory off-peak. | ✅ core done |
+| **`mnemo-cache`** | A **seasonality-aware cache** whose maximum capacity flexes on a daily time-of-day curve, to reclaim memory off-peak. | ✅ |
 | `mnemo-ai-core` | LLM-call resilience helpers (retry / rate-limit / backoff). | 🔜 planned |
 
 ## `mnemo-cache` — the seasonal cache
