@@ -128,8 +128,7 @@ process RSS to drop without the right collector.
 ## Build
 
 ```bash
-mvn verify        # compile + test all modules
-mvn -pl mnemo-cache test
+mvn verify   # compile + test
 ```
 
 Requires JDK 21+. CI builds on JDK 21 and 25 (see [`.github/workflows/build.yml`](.github/workflows/build.yml)).
