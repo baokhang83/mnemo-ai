@@ -3,6 +3,7 @@
 </p>
 
 [![build](https://github.com/baokhang83/mnemo-cache/actions/workflows/build.yml/badge.svg)](https://github.com/baokhang83/mnemo-cache/actions/workflows/build.yml)
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.baokhang83.mnemo/mnemo-cache.svg?label=Maven%20Central)](https://central.sonatype.com/artifact/io.github.baokhang83.mnemo/mnemo-cache)
 
 A **seasonality-aware cache** for the JVM whose maximum capacity flexes on a daily
 time-of-day curve, to reclaim memory off-peak. Lean, dependency-light, Java 21.
@@ -29,7 +30,7 @@ and drives its runtime-adjustable maximum along the curve — Caffeine still own
 
 ### Install
 
-Not yet published to Maven Central (currently `0.1.0-SNAPSHOT`). Once released:
+Available on Maven Central:
 
 ```xml
 <dependency>
