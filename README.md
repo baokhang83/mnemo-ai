@@ -1,17 +1,11 @@
-# mnemo-ai
+# mnemo-cache
 
-[![build](https://github.com/baokhang83/mnemo-ai/actions/workflows/build.yml/badge.svg)](https://github.com/baokhang83/mnemo-ai/actions/workflows/build.yml)
+[![build](https://github.com/baokhang83/mnemo-cache/actions/workflows/build.yml/badge.svg)](https://github.com/baokhang83/mnemo-cache/actions/workflows/build.yml)
 
-AI and caching utilities for the JVM. Lean, dependency-light, Java 21.
+A **seasonality-aware cache** for the JVM whose maximum capacity flexes on a daily
+time-of-day curve, to reclaim memory off-peak. Lean, dependency-light, Java 21.
 
-## Modules
-
-| Module | What it does | Status |
-|--------|--------------|--------|
-| **`mnemo-cache`** | A **seasonality-aware cache** whose maximum capacity flexes on a daily time-of-day curve, to reclaim memory off-peak. | ✅ |
-| `mnemo-ai-core` | LLM-call resilience helpers (retry / rate-limit / backoff). | 🔜 planned |
-
-## `mnemo-cache` — the seasonal cache
+## How it works
 
 A cache should be allowed to use a lot of memory at peak hours and **give it back off-peak**
 so other workloads on the host can use it. `mnemo-cache` lets you describe capacity as a
