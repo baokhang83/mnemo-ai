@@ -1,0 +1,15 @@
+GROUP,PACKAGE,CLASS,INSTRUCTION_MISSED,INSTRUCTION_COVERED,BRANCH_MISSED,BRANCH_COVERED,LINE_MISSED,LINE_COVERED,COMPLEXITY_MISSED,COMPLEXITY_COVERED,METHOD_MISSED,METHOD_COVERED
+mnemo-cache,io.github.baokhang83.mnemo.cache.schedule,ScheduleParseException,0,4,0,0,0,2,0,1,0,1
+mnemo-cache,io.github.baokhang83.mnemo.cache.schedule,Percent,0,28,0,4,0,6,0,5,0,3
+mnemo-cache,io.github.baokhang83.mnemo.cache.schedule,ScheduleParser.Anchor,0,9,0,0,0,1,0,1,0,1
+mnemo-cache,io.github.baokhang83.mnemo.cache.schedule,ScheduleSpec,0,18,0,0,0,1,0,1,0,1
+mnemo-cache,io.github.baokhang83.mnemo.cache.schedule,ScheduleParser,72,271,8,29,17,57,8,21,0,8
+mnemo-cache,io.github.baokhang83.mnemo.cache.schedule,SeasonalCapacity.Builder,3,109,0,4,1,26,1,12,1,10
+mnemo-cache,io.github.baokhang83.mnemo.cache.schedule,DailySchedule.Builder,5,105,1,5,1,21,1,9,0,7
+mnemo-cache,io.github.baokhang83.mnemo.cache.schedule,DailySchedule.Keyframe,0,9,0,0,0,1,0,1,0,1
+mnemo-cache,io.github.baokhang83.mnemo.cache.schedule,DailySchedule,6,135,3,13,2,21,3,11,0,6
+mnemo-cache,io.github.baokhang83.mnemo.cache.schedule,SeasonalCapacity,0,8,0,0,0,2,0,2,0,2
+mnemo-cache,io.github.baokhang83.mnemo.cache.schedule,ScheduleResolver,6,56,1,7,1,13,2,7,1,4
+mnemo-cache,io.github.baokhang83.mnemo.cache,CaffeineBackend,0,65,0,0,0,17,0,10,0,10
+mnemo-cache,io.github.baokhang83.mnemo.cache,SeasonalCacheState,0,15,0,0,0,1,0,1,0,1
+mnemo-cache,io.github.baokhang83.mnemo.cache,SeasonalCache,5,177,0,2,4,43,1,17,1,16

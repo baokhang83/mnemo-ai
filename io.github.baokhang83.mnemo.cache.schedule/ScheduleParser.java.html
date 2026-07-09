@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ScheduleParser.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mnemo-cache</a> &gt; <a href="index.source.html" class="el_package">io.github.baokhang83.mnemo.cache.schedule</a> &gt; <span class="el_source">ScheduleParser.java</span></div><h1>ScheduleParser.java</h1><pre class="source lang-java linenums">package io.github.baokhang83.mnemo.cache.schedule;
+
+import java.time.Duration;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeParseException;
+
+/**
+ * Parses the seasonal-cache meta-language into a {@link ScheduleSpec}.
+ *
+ * &lt;p&gt;Grammar (hand-written, zero parser dependencies):
+ * &lt;pre&gt;
+ * schedule := ('zone=' ZONE ';')? 'max=' INT ';'
+ *             ('min=' INT ';')? ('tick=' DURATION ';')? 'curve=' curve
+ * curve    := anchor (',' segment)*
+ * anchor   := TIME '@' PERCENT
+ * segment  := 'hold' TIME | 'ramp' TIME '@' PERCENT
+ * &lt;/pre&gt;
+ *
+ * &lt;p&gt;{@code zone} is syntactically optional in the grammar but semantically
+ * &lt;em&gt;required&lt;/em&gt;: the zone is never silently defaulted, so a missing zone fails fast.
+ */
+public final class ScheduleParser {
+
+    private ScheduleParser() {}
+
+    public static ScheduleSpec parse(String text) {
+<span class="pc bpc" id="L28" title="2 of 4 branches missed.">        if (text == null || text.isBlank()) {</span>
+<span class="nc" id="L29">            throw new ScheduleParseException(&quot;empty schedule&quot;);</span>
+        }
+
+<span class="fc" id="L32">        ZoneId zone = null;</span>
+<span class="fc" id="L33">        Long max = null;</span>
+<span class="fc" id="L34">        long min = 0L;</span>
+<span class="fc" id="L35">        Duration tick = Duration.ofSeconds(60); // default</span>
+<span class="fc" id="L36">        String curveText = null;</span>
+
+<span class="fc bfc" id="L38" title="All 2 branches covered.">        for (String rawPart : text.split(&quot;;&quot;)) {</span>
+<span class="fc" id="L39">            String part = rawPart.trim();</span>
+<span class="pc bpc" id="L40" title="1 of 2 branches missed.">            if (part.isEmpty()) {</span>
+<span class="nc" id="L41">                continue;</span>
+            }
+<span class="fc" id="L43">            int eq = part.indexOf('=');</span>
+<span class="fc bfc" id="L44" title="All 2 branches covered.">            if (eq &lt; 0) {</span>
+<span class="fc" id="L45">                throw new ScheduleParseException(&quot;expected key=value, got: \&quot;&quot; + part + &quot;\&quot;&quot;);</span>
+            }
+<span class="fc" id="L47">            String key = part.substring(0, eq).trim();</span>
+<span class="fc" id="L48">            String value = part.substring(eq + 1).trim();</span>
+<span class="fc bfc" id="L49" title="All 6 branches covered.">            switch (key) {</span>
+<span class="fc" id="L50">                case &quot;zone&quot; -&gt; zone = parseZone(value);</span>
+<span class="fc" id="L51">                case &quot;max&quot; -&gt; max = parseLong(&quot;max&quot;, value);</span>
+<span class="fc" id="L52">                case &quot;min&quot; -&gt; min = parseLong(&quot;min&quot;, value);</span>
+<span class="fc" id="L53">                case &quot;tick&quot; -&gt; tick = parseDuration(value);</span>
+<span class="fc" id="L54">                case &quot;curve&quot; -&gt; curveText = value;</span>
+<span class="fc" id="L55">                default -&gt; throw new ScheduleParseException(&quot;unknown key: \&quot;&quot; + key + &quot;\&quot;&quot;);</span>
+            }
+        }
+
+<span class="fc bfc" id="L59" title="All 2 branches covered.">        if (zone == null) {</span>
+<span class="fc" id="L60">            throw new ScheduleParseException(&quot;zone is required&quot;);</span>
+        }
+<span class="pc bpc" id="L62" title="1 of 2 branches missed.">        if (max == null) {</span>
+<span class="nc" id="L63">            throw new ScheduleParseException(&quot;max is required&quot;);</span>
+        }
+<span class="pc bpc" id="L65" title="1 of 2 branches missed.">        if (curveText == null) {</span>
+<span class="nc" id="L66">            throw new ScheduleParseException(&quot;curve is required&quot;);</span>
+        }
+
+<span class="fc" id="L69">        return new ScheduleSpec(zone, max, min, tick, parseCurve(curveText));</span>
+    }
+
+    private static CapacitySchedule parseCurve(String curveText) {
+<span class="fc" id="L73">        String[] tokens = curveText.split(&quot;,&quot;);</span>
+<span class="fc" id="L74">        DailySchedule.Builder builder = DailySchedule.builder();</span>
+
+<span class="fc bfc" id="L76" title="All 2 branches covered.">        for (int i = 0; i &lt; tokens.length; i++) {</span>
+<span class="fc" id="L77">            String token = tokens[i].trim();</span>
+<span class="fc bfc" id="L78" title="All 2 branches covered.">            if (i == 0) {</span>
+<span class="fc" id="L79">                Anchor anchor = parseAnchor(token, token);</span>
+<span class="fc" id="L80">                builder.startAt(anchor.time(), anchor.percent());</span>
+<span class="fc bfc" id="L81" title="All 2 branches covered.">            } else if (token.startsWith(&quot;hold&quot;)) {</span>
+<span class="fc" id="L82">                builder.holdUntil(parseTime(token.substring(4).trim(), token));</span>
+<span class="pc bpc" id="L83" title="1 of 2 branches missed.">            } else if (token.startsWith(&quot;ramp&quot;)) {</span>
+<span class="fc" id="L84">                Anchor anchor = parseAnchor(token.substring(4).trim(), token);</span>
+<span class="fc" id="L85">                builder.rampUntil(anchor.time(), anchor.percent());</span>
+<span class="fc" id="L86">            } else {</span>
+<span class="nc" id="L87">                throw new ScheduleParseException(</span>
+                        &quot;expected 'hold' or 'ramp' segment, got: \&quot;&quot; + token + &quot;\&quot;&quot;);
+            }
+        }
+<span class="fc" id="L91">        return builder.build();</span>
+    }
+
+<span class="fc" id="L94">    private record Anchor(LocalTime time, Percent percent) {}</span>
+
+    private static Anchor parseAnchor(String body, String fragment) {
+<span class="fc" id="L97">        int at = body.indexOf('@');</span>
+<span class="fc bfc" id="L98" title="All 2 branches covered.">        if (at &lt; 0) {</span>
+<span class="fc" id="L99">            throw new ScheduleParseException(&quot;expected TIME@PERCENT, got: \&quot;&quot; + fragment + &quot;\&quot;&quot;);</span>
+        }
+<span class="fc" id="L101">        LocalTime time = parseTime(body.substring(0, at).trim(), fragment);</span>
+<span class="fc" id="L102">        Percent percent = parsePercent(body.substring(at + 1).trim(), fragment);</span>
+<span class="fc" id="L103">        return new Anchor(time, percent);</span>
+    }
+
+    private static LocalTime parseTime(String s, String fragment) {
+        try {
+<span class="fc" id="L108">            return LocalTime.parse(s);</span>
+<span class="nc" id="L109">        } catch (DateTimeParseException e) {</span>
+<span class="nc" id="L110">            throw new ScheduleParseException(&quot;invalid time \&quot;&quot; + s + &quot;\&quot; in: \&quot;&quot; + fragment + &quot;\&quot;&quot;);</span>
+        }
+    }
+
+    private static Percent parsePercent(String s, String fragment) {
+        try {
+<span class="fc" id="L116">            return Percent.of(Integer.parseInt(s));</span>
+<span class="nc" id="L117">        } catch (IllegalArgumentException e) { // NumberFormatException or Percent range check</span>
+<span class="nc" id="L118">            throw new ScheduleParseException(</span>
+                    &quot;invalid percent \&quot;&quot; + s + &quot;\&quot; in: \&quot;&quot; + fragment + &quot;\&quot;&quot;);
+        }
+    }
+
+    private static ZoneId parseZone(String s) {
+        try {
+<span class="fc" id="L125">            return ZoneId.of(s);</span>
+<span class="nc" id="L126">        } catch (RuntimeException e) {</span>
+<span class="nc" id="L127">            throw new ScheduleParseException(&quot;invalid zone: \&quot;&quot; + s + &quot;\&quot;&quot;);</span>
+        }
+    }
+
+    private static long parseLong(String key, String s) {
+        try {
+<span class="fc" id="L133">            return Long.parseLong(s);</span>
+<span class="nc" id="L134">        } catch (NumberFormatException e) {</span>
+<span class="nc" id="L135">            throw new ScheduleParseException(&quot;invalid &quot; + key + &quot;: \&quot;&quot; + s + &quot;\&quot;&quot;);</span>
+        }
+    }
+
+    private static Duration parseDuration(String s) {
+<span class="pc bpc" id="L140" title="1 of 2 branches missed.">        if (s.length() &lt; 2) {</span>
+<span class="nc" id="L141">            throw new ScheduleParseException(&quot;invalid tick: \&quot;&quot; + s + &quot;\&quot;&quot;);</span>
+        }
+<span class="fc" id="L143">        char unit = s.charAt(s.length() - 1);</span>
+<span class="fc" id="L144">        String num = s.substring(0, s.length() - 1);</span>
+        try {
+<span class="fc" id="L146">            long value = Long.parseLong(num);</span>
+<span class="pc bpc" id="L147" title="1 of 3 branches missed.">            return switch (unit) {</span>
+<span class="fc" id="L148">                case 's' -&gt; Duration.ofSeconds(value);</span>
+<span class="fc" id="L149">                case 'm' -&gt; Duration.ofMinutes(value);</span>
+<span class="nc" id="L150">                default -&gt; throw new ScheduleParseException(</span>
+                        &quot;invalid tick unit (expected 's' or 'm'): \&quot;&quot; + s + &quot;\&quot;&quot;);
+            };
+<span class="nc" id="L153">        } catch (NumberFormatException e) {</span>
+<span class="nc" id="L154">            throw new ScheduleParseException(&quot;invalid tick: \&quot;&quot; + s + &quot;\&quot;&quot;);</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>

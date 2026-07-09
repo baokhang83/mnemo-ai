@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SeasonalCache.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">mnemo-cache</a> &gt; <a href="index.source.html" class="el_package">io.github.baokhang83.mnemo.cache</a> &gt; <span class="el_source">SeasonalCache.java</span></div><h1>SeasonalCache.java</h1><pre class="source lang-java linenums">package io.github.baokhang83.mnemo.cache;
+
+import io.github.baokhang83.mnemo.cache.schedule.ScheduleSpec;
+import java.time.Clock;
+import java.time.LocalTime;
+import java.util.Objects;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
+
+/**
+ * A cache whose maximum capacity flexes on a daily seasonality curve, to reclaim memory
+ * off-peak. A single background thread samples the curve every {@link ScheduleSpec#tick()}
+ * and adjusts the backend's maximum; eviction itself is delegated to the backend.
+ *
+ * &lt;p&gt;Construct with {@link #start(ScheduleSpec)}. Call {@link #shutdown()} to stop the
+ * background scheduler when the cache is no longer needed.
+ */
+public final class SeasonalCache&lt;K, V&gt; {
+
+    private final ScheduleSpec spec;
+    private final Clock clock;
+    private final CapacityBackend&lt;K, V&gt; backend;
+    private volatile ScheduledExecutorService scheduler;
+
+<span class="fc" id="L27">    SeasonalCache(ScheduleSpec spec, Clock clock, CapacityBackend&lt;K, V&gt; backend) {</span>
+<span class="fc" id="L28">        this.spec = Objects.requireNonNull(spec, &quot;spec&quot;);</span>
+<span class="fc" id="L29">        this.clock = Objects.requireNonNull(clock, &quot;clock&quot;);</span>
+<span class="fc" id="L30">        this.backend = Objects.requireNonNull(backend, &quot;backend&quot;);</span>
+<span class="fc" id="L31">        refreshCapacity(); // apply the curve's capacity for &quot;now&quot; up front</span>
+<span class="fc" id="L32">    }</span>
+
+    /** Start a Caffeine-backed seasonal cache driven by the system clock. */
+    public static &lt;K, V&gt; SeasonalCache&lt;K, V&gt; start(ScheduleSpec spec) {
+<span class="fc" id="L36">        return start(spec, Clock.systemUTC());</span>
+    }
+
+    /** Start a Caffeine-backed seasonal cache driven by the given clock. */
+    public static &lt;K, V&gt; SeasonalCache&lt;K, V&gt; start(ScheduleSpec spec, Clock clock) {
+<span class="fc" id="L41">        SeasonalCache&lt;K, V&gt; cache =</span>
+<span class="fc" id="L42">                new SeasonalCache&lt;&gt;(spec, clock, new CaffeineBackend&lt;&gt;(spec.maxEntries()));</span>
+<span class="fc" id="L43">        cache.startScheduler();</span>
+<span class="fc" id="L44">        return cache;</span>
+    }
+
+    /** Test seam: build a cache with initial capacity applied but no background scheduler. */
+    static &lt;K, V&gt; SeasonalCache&lt;K, V&gt; withoutScheduler(ScheduleSpec spec, Clock clock) {
+<span class="fc" id="L49">        return new SeasonalCache&lt;&gt;(spec, clock, new CaffeineBackend&lt;&gt;(spec.maxEntries()));</span>
+    }
+
+    public V getIfPresent(K key) {
+<span class="fc" id="L53">        return backend.getIfPresent(key);</span>
+    }
+
+    public void put(K key, V value) {
+<span class="fc" id="L57">        backend.put(key, value);</span>
+<span class="fc" id="L58">    }</span>
+
+    public void invalidate(K key) {
+<span class="fc" id="L61">        backend.invalidate(key);</span>
+<span class="fc" id="L62">    }</span>
+
+    /** Return the value for {@code key}, computing and caching it via {@code loader} if absent. */
+    public V get(K key, Function&lt;K, V&gt; loader) {
+<span class="fc" id="L66">        return backend.get(key, loader);</span>
+    }
+
+    public SeasonalCacheState state() {
+<span class="fc" id="L70">        return new SeasonalCacheState(</span>
+<span class="fc" id="L71">                currentFraction(),</span>
+<span class="fc" id="L72">                backend.currentMaximum(),</span>
+<span class="fc" id="L73">                backend.estimatedSize(),</span>
+<span class="fc" id="L74">                backend.evictionCount());</span>
+    }
+
+    /** Stop the background scheduler. Idempotent; safe to call more than once. */
+    public void shutdown() {
+<span class="fc" id="L79">        ScheduledExecutorService current = scheduler;</span>
+<span class="fc bfc" id="L80" title="All 2 branches covered.">        if (current != null) {</span>
+<span class="fc" id="L81">            current.shutdownNow();</span>
+<span class="fc" id="L82">            scheduler = null;</span>
+        }
+<span class="fc" id="L84">    }</span>
+
+    private void startScheduler() {
+<span class="fc" id="L87">        ScheduledExecutorService service = Executors.newSingleThreadScheduledExecutor(runnable -&gt; {</span>
+<span class="fc" id="L88">            Thread thread = new Thread(runnable, &quot;mnemo-seasonal-cache&quot;);</span>
+<span class="fc" id="L89">            thread.setDaemon(true);</span>
+<span class="fc" id="L90">            return thread;</span>
+        });
+<span class="fc" id="L92">        long periodMillis = Math.max(1L, spec.tick().toMillis());</span>
+<span class="fc" id="L93">        service.scheduleAtFixedRate(</span>
+                this::refreshCapacityQuietly, periodMillis, periodMillis, TimeUnit.MILLISECONDS);
+<span class="fc" id="L95">        this.scheduler = service;</span>
+<span class="fc" id="L96">    }</span>
+
+    private void refreshCapacityQuietly() {
+        try {
+<span class="nc" id="L100">            refreshCapacity();</span>
+<span class="nc" id="L101">        } catch (RuntimeException ignored) {</span>
+            // A transient failure must not kill the scheduler; the next tick retries.
+<span class="nc" id="L103">        }</span>
+<span class="nc" id="L104">    }</span>
+
+    void refreshCapacity() {
+<span class="fc" id="L107">        backend.setMaximum(targetMaximum(spec, nowLocal()));</span>
+<span class="fc" id="L108">    }</span>
+
+    private LocalTime nowLocal() {
+<span class="fc" id="L111">        return clock.instant().atZone(spec.zone()).toLocalTime();</span>
+    }
+
+    private double currentFraction() {
+<span class="fc" id="L115">        return spec.curve().fractionAt(nowLocal());</span>
+    }
+
+    /** Pure capacity policy: the curve fraction scaled by max, clamped to the absolute floor. */
+    static long targetMaximum(ScheduleSpec spec, LocalTime now) {
+<span class="fc" id="L120">        double fraction = spec.curve().fractionAt(now);</span>
+<span class="fc" id="L121">        long scaled = Math.round(spec.maxEntries() * fraction);</span>
+<span class="fc" id="L122">        return Math.max(spec.minEntries(), scaled);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.15.202606040825</span></div></body></html>
